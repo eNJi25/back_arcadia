@@ -37,6 +37,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(nullable: false)]
     private ?role $role = null;
 
+    #[ORM\Column(length: 255)]
+    private ?string $apiToken;
+
     /**
      * @var Collection<int, RapportVeterinaire>
      */
@@ -46,6 +49,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __construct()
     {
         $this->rapportVeterinaires = new ArrayCollection();
+        $this->apiToken = bin2hex(random_bytes(20));
     }
 
     public function getId(): ?int
@@ -95,6 +99,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setRoles(array $roles): static
     {
         $this->roles = $roles;
+
+        return $this;
+    }
+
+    public function getApiToken(): ?string
+    {
+        return $this->apiToken;
+    }
+
+    public function setApiToken(string $apiToken): static
+    {
+        $this->apiToken = $apiToken;
 
         return $this;
     }
