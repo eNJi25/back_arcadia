@@ -33,10 +33,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?string $password = null;
 
-    #[ORM\ManyToOne(inversedBy: 'users')]
-    #[ORM\JoinColumn(nullable: false)]
-    private ?role $role = null;
-
     #[ORM\Column(length: 255)]
     private ?string $apiToken;
 
@@ -87,8 +83,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
 
         return array_unique($roles);
     }
@@ -137,18 +131,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
-    }
-
-    public function getRole(): ?role
-    {
-        return $this->role;
-    }
-
-    public function setRole(?role $role): static
-    {
-        $this->role = $role;
-
-        return $this;
     }
 
     /**
