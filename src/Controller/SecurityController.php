@@ -13,33 +13,59 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api', name: 'app_api_')]
+#[Route('/api/registration', name: 'app_api_registration_')]
 class SecurityController extends AbstractController
 {
     public function __construct(private EntityManagerInterface $manager, private SerializerInterface $serializer) {}
 
-    #[Route('/registration', name: 'registration', methods: 'POST')]
-    public function register(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    #[Route('/veterinaire', name: 'veterinaire', methods: 'POST')]
+    public function registerVet(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
+        // Récupére les données envoyées par le front
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['email'], $data['password'])) {
+            return new JsonResponse(['error' => 'Le mail et le mot de passe sont nécesaire'], 400);
+        }
+
         $user = $this->serializer->deserialize($request->getContent(), User::class, 'json');
+        $user->setEmail($data['email']);
         $user->setPassword($passwordHasher->hashPassword($user, $user->getPassword()));
+        $user->setRoles(['veterinaire']);
 
         $this->manager->persist($user);
         $this->manager->flush();
 
-        return new JsonResponse(
-            ['user' => $user->getUserIdentifier(), "apiToken" => $user->getApiToken(), 'roles' => $user->getRoles()],
-            Response::HTTP_CREATED
-        );
+        return new JsonResponse(["message" => "L'utilisateur vétérinaire a été crée avec succès"], 201);
+    }
+
+    #[Route('/employee', name: 'employee', methods: 'POST')]
+    public function registerEmp(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    {
+        // Récupére les données envoyées par le front
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['email'], $data['password'])) {
+            return new JsonResponse(['error' => 'Le mail et le mot de passe sont nécesaire'], 400);
+        }
+
+        $user = $this->serializer->deserialize($request->getContent(), User::class, 'json');
+        $user->setEmail($data['email']);
+        $user->setPassword($passwordHasher->hashPassword($user, $user->getPassword()));
+        $user->setRoles(['employee']);
+
+        $this->manager->persist($user);
+        $this->manager->flush();
+
+        return new JsonResponse(["message" => "L'utilisateur employée a été crée avec succès"], 201);
     }
 
     #[Route('/login', name: 'login', methods: ['POST'])]
     public function login(#[CurrentUser] ?User $user): JsonResponse
     {
-        // Si le user n'est pas crée, il faudra retourner une erreur
         if (null === $user) {
             return new JsonResponse([
-                'message' => 'missing credentials'
+                'message' => 'Utilisateur non trouvé'
             ], Response::HTTP_UNAUTHORIZED);
         }
 

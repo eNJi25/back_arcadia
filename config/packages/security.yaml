@@ -41,6 +41,8 @@ security:
     - { path: ^/veterinaire, roles: ROLE_VETERINAIRE }
     - { path: ^/employee, roles: ROLE_EMPLOYEE }
     - { path: ^/, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+    - { path: ^/registration/veterinaire, roles: [ 'ROLE_ADMIN' ] }
+    - { path: ^/registration/employee, roles: [ 'ROLE_ADMIN' ] }
 
 when@test:
   security:
