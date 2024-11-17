@@ -3,7 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Animal;
-use App\Repository\HabitatRepository;
+use App\Repository\AnimalRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,7 +19,7 @@ class AnimalController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $manager,
-        private HabitatRepository $repository,
+        private AnimalRepository $repository,
         private UrlGeneratorInterface $urlGenerator,
         private SerializerInterface $serializer,
     ) {}
