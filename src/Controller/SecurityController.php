@@ -12,7 +12,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api/registration', name: 'app_api_registration_')]
+#[Route('/api/', name: 'app_api_')]
 class SecurityController extends AbstractController
 {
     private $userRepository;
@@ -21,7 +21,7 @@ class SecurityController extends AbstractController
         $this->userRepository = $manager->getRepository(User::class);
     }
 
-    #[Route('/veterinaire', name: 'veterinaire', methods: 'POST')]
+    #[Route('/registration/veterinaire', name: 'registration_veterinaire', methods: 'POST')]
     public function registerVet(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -41,7 +41,7 @@ class SecurityController extends AbstractController
         return new JsonResponse(["message" => "L'utilisateur vétérinaire a été crée avec succès"], 201);
     }
 
-    #[Route('/employee', name: 'employee', methods: 'POST')]
+    #[Route('/registration/employee', name: 'registration_employee', methods: 'POST')]
     public function registerEmp(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
