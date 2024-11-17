@@ -20,10 +20,11 @@ security:
       provider: app_user_provider
       json-login:
         check_path: app_api_login
+      custom_authenticator: App\Security\ApiTokenAuthenticator
 
   access_control:
     - { path: ^/api/doc, roles: PUBLIC_ACCESS }
-    
+    - { path: ^/api/registration, roles: admin }
 
       # Autre configuration de logout si nécessaire
       # activate different ways to authenticate
