@@ -24,7 +24,7 @@ class HabitatController extends AbstractController
         private SerializerInterface $serializer,
     ) {}
 
-    #[Route(name: 'new', methods: 'POST')]
+    #[Route('/new', name: 'new', methods: 'POST')]
     public function new(Request $request): JsonResponse
     {
         $habitat = $this->serializer->deserialize($request->getContent(), Habitat::class, 'json');
@@ -40,7 +40,7 @@ class HabitatController extends AbstractController
         return new JsonResponse($responseData, Response::HTTP_CREATED, ["location" => $location], true);
     }
 
-    #[Route('/{id}', name: 'show', methods: 'GET')]
+    #[Route('/show/{id}', name: 'show', methods: 'GET')]
     public function show(int $id): JsonResponse
     {
         $habitat = $this->repository->findOneBy(['id' => $id]);
@@ -52,7 +52,7 @@ class HabitatController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
-    #[Route('/{id}', name: 'edit', methods: 'PUT')]
+    #[Route('/edit/{id}', name: 'edit', methods: 'PUT')]
     public function edit(int $id, Request $request): JsonResponse
     {
         $habitat = $this->repository->findOneBy(['id' => $id]);
@@ -66,13 +66,13 @@ class HabitatController extends AbstractController
 
             $this->manager->flush();
 
-            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+            return new JsonResponse(['message' => 'Modifier avec succès'], 202);
         }
 
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
-    #[Route('/{id}', name: 'delete', methods: 'DELETE')]
+    #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]
     public function delete(int $id): JsonResponse
     {
         $habitat = $this->repository->findOneBy(['id' => $id]);
@@ -80,7 +80,7 @@ class HabitatController extends AbstractController
             $this->manager->remove($habitat);
             $this->manager->flush();
 
-            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+            return new JsonResponse(["message" => "Habitat supprimé avec succès"], Response::HTTP_OK);
         }
 
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
