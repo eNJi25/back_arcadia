@@ -15,5 +15,4 @@ class RapportVeterinaireRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, RapportVeterinaire::class);
     }
-
 }
