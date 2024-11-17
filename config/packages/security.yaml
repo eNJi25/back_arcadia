@@ -14,7 +14,16 @@ security:
     dev:
       pattern: ^/(_(profiler|wdt)|css|images|js)/
       security: false
+    main:
+      lazy: true
       stateless: true
+      provider: app_user_provider
+      json-login:
+        check_path: app_api_login
+
+  access_control:
+    - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+    
 
       # Autre configuration de logout si nécessaire
       # activate different ways to authenticate
