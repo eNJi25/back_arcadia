@@ -3,9 +3,14 @@
 namespace App\Controller;
 
 use App\Entity\Animal;
+use App\Entity\Habitat;
+use App\Entity\Image;
+use App\Entity\Race;
 use App\Repository\AnimalRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,27 +22,73 @@ use Symfony\Component\Serializer\SerializerInterface;
 #[Route('/api/animal', name: 'app_api_animal_')]
 class AnimalController extends AbstractController
 {
+    private $uploadDirectory;
+
     public function __construct(
         private EntityManagerInterface $manager,
         private AnimalRepository $repository,
         private UrlGeneratorInterface $urlGenerator,
         private SerializerInterface $serializer,
-    ) {}
+    ) {
+        $this->uploadDirectory = __DIR__ . '/../../public/assets/images/animaux';
+    }
 
     #[Route('/new', name: 'new', methods: ['POST'])]
     public function new(Request $request): JsonResponse
     {
-        $animal = $this->serializer->deserialize($request->getContent(), Animal::class, 'json');
+        // Récupérer le contenu JSON de la requête
+        $content = $request->getContent();
+        $data = json_decode($content, true);
+
+        $raceName = $data['race'];
+        $prenom = $data['prenom'];
+        $etat = $data['etat'];
+        $habitatName = $data['habitat'];
+
+        $race = $this->manager->getRepository(Race::class)->findOneBy(['race' => $raceName]);
+        $habitat = $this->manager->getRepository(Habitat::class)->findOneBy(['nom' => $habitatName]);
+
+        if (!$race) {
+            $race = new Race();
+            $race->setRace($raceName);
+            $this->manager->persist($race);
+            $this->manager->flush();
+        }
+
+
+
+        $animal = new Animal();
+        $animal->setPrenom($prenom);
+        $animal->setEtat($etat);
+        $animal->setHabitat($habitat);
+        $animal->setRace($race);
+
+        if ($request->files->get('image')) {
+            $imageFile = $request->files->get('image');
+
+            if ($imageFile instanceof UploadedFile) {
+                $filename = uniqid() . '.' . $imageFile->guessExtension();
+                try {
+
+                    $imageFile->move($this->uploadDirectory, $filename);
+
+                    $image = new Image();
+                    $image->setSlug('/uploads/images/' . $filename);
+                    $image->setAnimal($animal);
+
+                    // Persiste l'image
+                    $this->manager->persist($image);
+                } catch (FileException $e) {
+                    return new Response('Erreur lors du téléchargement de l\'image.', 500);
+                }
+            }
+        }
+
         $this->manager->persist($animal);
         $this->manager->flush();
 
-        $responseData = $this->serializer->serialize($animal, 'json');
-        $location = $this->urlGenerator->generate(
-            'app_api_animal_show',
-            ['id' => $animal->getId()],
-            UrlGeneratorInterface::ABSOLUTE_URL,
-        );
-        return new JsonResponse($responseData, Response::HTTP_CREATED, ["location" => $location], true);
+        // Retourner une réponse de succès
+        return new JsonResponse(["message" => "Animal créé avec succès"], 201);
     }
 
     #[Route('/show/{id}', name: 'show', methods: 'GET')]

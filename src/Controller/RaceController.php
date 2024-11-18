@@ -11,7 +11,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 #[Route('/api/race', name: 'app_api_race_')]
@@ -47,40 +46,6 @@ class RaceController extends AbstractController
         if ($race) {
             $responseData = $this->serializer->serialize($race, 'json');
             return new JsonResponse($responseData, Response::HTTP_OK, [], true);
-        }
-
-        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
-    }
-
-    #[Route('/edit/{id}', name: 'edit', methods: 'PUT')]
-    public function edit(int $id, Request $request): JsonResponse
-    {
-        $race = $this->repository->findOneBy(['id' => $id]);
-        if ($race) {
-            $race = $this->serializer->deserialize(
-                $request->getContent(),
-                Race::class,
-                'json',
-                [AbstractNormalizer::OBJECT_TO_POPULATE => $race]
-            );
-
-            $this->manager->flush();
-
-            return new JsonResponse(['message' => 'Modifier avec succès'], 202);
-        }
-
-        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
-    }
-
-    #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]
-    public function delete(int $id): JsonResponse
-    {
-        $race = $this->repository->findOneBy(['id' => $id]);
-        if ($race) {
-            $this->manager->remove($race);
-            $this->manager->flush();
-
-            return new JsonResponse(["message" => "Race supprimé avec succès"], Response::HTTP_OK);
         }
 
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
