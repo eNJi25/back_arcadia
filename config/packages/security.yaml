@@ -23,6 +23,8 @@ security:
       custom_authenticator: App\Security\ApiTokenAuthenticator
 
   access_control:
+    - { path: ^/api, roles: PUBLIC_ACCESS }
+    - { path: ^/api/login, roles: PUBLIC_ACCESS }
     - { path: ^/api/doc, roles: PUBLIC_ACCESS }
     - { path: ^/api/registration, roles: admin }
 

@@ -12,7 +12,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api/', name: 'app_api_')]
+#[Route('/api', name: 'app_api_')]
 class SecurityController extends AbstractController
 {
     private $userRepository;
@@ -66,17 +66,16 @@ class SecurityController extends AbstractController
     public function login(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-
-        $email = $data['email'] ?? null;
+        $username = $data['username'] ?? null; // Change 'email' en 'username'
         $password = $data['password'] ?? null;
 
-        if (!$email || !$password) {
+        if (!$username || !$password) {
             return new JsonResponse([
                 'message' => 'L\'email et mot de passe sont requis'
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $user = $this->userRepository->findOneBy(['email' => $email]);
+        $user = $this->userRepository->findOneBy(['email' => $username]); // Utilise 'email' ici aussi
 
         if (!$user) {
             return new JsonResponse([
@@ -92,7 +91,7 @@ class SecurityController extends AbstractController
 
         return new JsonResponse([
             'user' => $user->getUserIdentifier(),
-            'apiToken' => $user->getApiToken(),  // En pratique, ici tu générerais un token JWT ou autre mécanisme
+            'apiToken' => $user->getApiToken(),
             'roles' => $user->getRoles()
         ], Response::HTTP_OK);
     }

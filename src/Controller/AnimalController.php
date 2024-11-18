@@ -36,9 +36,7 @@ class AnimalController extends AbstractController
     #[Route('/new', name: 'new', methods: ['POST'])]
     public function new(Request $request): JsonResponse
     {
-        // Récupérer le contenu JSON de la requête
-        $content = $request->getContent();
-        $data = json_decode($content, true);
+        $data = json_decode($request->getContent(), true);
 
         $raceName = $data['race'];
         $prenom = $data['prenom'];
