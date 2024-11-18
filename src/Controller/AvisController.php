@@ -92,12 +92,12 @@ class AvisController extends AbstractController
     #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]
     public function delete(int $id): JsonResponse
     {
-        $habitat = $this->repository->findOneBy(['id' => $id]);
-        if ($habitat) {
-            $this->manager->remove($habitat);
+        $avis = $this->repository->findOneBy(['id' => $id]);
+        if ($avis) {
+            $this->manager->remove($avis);
             $this->manager->flush();
 
-            return new JsonResponse(["message" => "Habitat supprimé avec succès"], Response::HTTP_OK);
+            return new JsonResponse(["message" => "Avis supprimé avec succès"], Response::HTTP_OK);
         }
 
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
