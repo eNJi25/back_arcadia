@@ -12,6 +12,7 @@ use App\Repository\RaceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,14 +36,14 @@ class AnimalController extends AbstractController
     ) {}
 
     #[Route('/new', name: 'new_animal', methods: ['POST'])]
-    public function new(Request $request, EntityManagerInterface $em, HabitatRepository $habitatRepo, RaceRepository $raceRepo, ParameterBagInterface $params): JsonResponse
+    public function new(Request $request, EntityManagerInterface $em, HabitatRepository $habitatRepo, RaceRepository $raceRepo): JsonResponse
     {
         // Récupérer les données de la requête
         $prenom = $request->request->get('prenomAnimal');
         $etat = $request->request->get('etatAnimal');
         $habitatName = $request->request->get('habitatAnimal');
         $raceName = $request->request->get('raceAnimal');
-        $photo = $request->files->get('photo');
+        $photo = $request->files->get('photo');  // Photo de l'animal
 
         // Vérification des données
         if (!$prenom || !$etat || !$habitatName || !$raceName || !$photo) {
@@ -69,19 +70,18 @@ class AnimalController extends AbstractController
             return new JsonResponse(['message' => 'Erreur avec le fichier photo.'], 400);
         }
 
-        // Utilisation du paramètre animal_images_directory pour obtenir le répertoire
-        $directory = $params->get('animal_images_directory');
+        // Spécifier le répertoire de destination pour l'image
+        $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/animaux';
 
-        // Vérifiez si le répertoire existe sinon créez-le
-        if (!is_dir($directory)) {
-            mkdir($directory, 0775, true); // Crée le dossier avec les bonnes permissions
+        // Générer un nom unique pour l'image
+        $newFilename = '/assets/images/animaux/' . uniqid() . '.' . $photo->guessExtension();
+
+        try {
+            // Déplacer l'image dans le répertoire des animaux
+            $photo->move($uploadsDir, $newFilename);
+        } catch (FileException $e) {
+            return new JsonResponse(['message' => 'Erreur lors de l\'upload de l\'image'], 500);
         }
-
-        // Générer un nom de fichier unique
-        $fileName = uniqid() . '.' . $photo->guessExtension();
-
-        // Déplacer l'image dans le répertoire spécifié
-        $photo->move($directory, $fileName);
 
         // Créer l'animal
         $animal = new Animal();
@@ -94,15 +94,20 @@ class AnimalController extends AbstractController
 
         // Créer l'image associée
         $image = new Image();
-        $image->setSlug($fileName);
+        $image->setSlug($newFilename);  // Assigner le chemin de l'image à l'entité Image
         $image->setAnimal($animal);
 
         $em->persist($image);
         $em->flush();
 
-        // Retourner une réponse JSON de succès
-        return new JsonResponse(['message' => 'Animal créé avec succès!', 'animalId' => $animal->getId(), 'imagePath' => '/assets/images/' . $fileName], 201);
+        // Retourner une réponse JSON de succès avec le chemin de l'image
+        return new JsonResponse([
+            'message' => 'Animal créé avec succès!',
+            'animalId' => $animal->getId(),
+            'imagePath' => $newFilename  // Retourner le chemin relatif de l'image
+        ], 201);
     }
+
 
     #[Route('/show/{id}', name: 'show', methods: 'GET')]
     public function show(int $id): JsonResponse

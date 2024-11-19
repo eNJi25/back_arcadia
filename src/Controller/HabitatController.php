@@ -6,6 +6,8 @@ use App\Entity\Habitat;
 use App\Repository\HabitatRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -71,25 +73,50 @@ class HabitatController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
-    #[Route('/edit/{id}', name: 'edit', methods: 'PUT')]
+    #[Route('/edit/{id}', name: 'edit', methods: 'POST')]
     public function edit(int $id, Request $request): JsonResponse
     {
         $habitat = $this->repository->findOneBy(['id' => $id]);
-        if ($habitat) {
-            $habitat = $this->serializer->deserialize(
-                $request->getContent(),
-                Habitat::class,
-                'json',
-                [AbstractNormalizer::OBJECT_TO_POPULATE => $habitat]
-            );
-
-            $this->manager->flush();
-
-            return new JsonResponse(['message' => 'Modifier avec succès'], 202);
+        if (!$habitat) {
+            return new JsonResponse(['message' => 'Habitat non trouvé'], Response::HTTP_NOT_FOUND);
         }
 
-        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
+        $data = $request->request->all();
+        $file = $request->files->get('image');
+
+        if (isset($data['nom'])) {
+            $habitat->setNom($data['nom']);
+        }
+
+        if (isset($data['description'])) {
+            $habitat->setDescription($data['description']);
+        }
+
+        if ($file instanceof UploadedFile) {
+            $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/habitats';
+
+            // Supprimer l'ancienne image
+            $oldImagePath = $uploadsDir . '/' . $habitat->getImage();
+            if (file_exists($oldImagePath)) {
+                unlink($oldImagePath);
+            }
+
+            // Générer un nouveau nom unique pour le fichier
+            $newFilename = '/assets/images/habitats/' . uniqid() . '.' . $file->guessExtension();
+
+            try {
+                $file->move($uploadsDir, $newFilename);
+                $habitat->setImage($newFilename);
+            } catch (FileException $e) {
+                return new JsonResponse(['message' => 'Erreur lors de l\'upload de l\'image'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+        }
+
+        $this->manager->flush();
+
+        return new JsonResponse(['message' => 'Habitat modifié avec succès'], Response::HTTP_ACCEPTED);
     }
+
 
     #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]
     public function delete(int $id): JsonResponse
