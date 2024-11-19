@@ -164,6 +164,45 @@ class AnimalController extends AbstractController
         return new JsonResponse($data, Response::HTTP_OK);
     }
 
+    #[Route('/showAnimalsHome', name: 'show_animals_page', methods: 'GET')]
+    public function showAllAnimals(): JsonResponse
+    {
+        // Récupérer tous les habitats
+        $habitats = $this->habitatRepository->findAll();
+
+        if (empty($habitats)) {
+            return new JsonResponse(['message' => 'Aucun habitat trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $animalsData = [];
+
+        foreach ($habitats as $habitat) {
+            // Recherche un animal de cet habitat
+            $animal = $this->animalRepository->findOneBy(['habitat' => $habitat]);
+
+            if ($animal) {
+                $data = [
+                    'habitat' => $habitat->getNom(),
+                    'animal' => [
+                        'id' => $animal->getId(),
+                        'prenom' => $animal->getPrenom(),
+                        'etat' => $animal->getEtat(),
+                        'race' => $animal->getRace() ? $animal->getRace()->getRace() : null,
+                        'images' => array_map(fn($image) => $image->getUrl(), $animal->getImages()->toArray()),
+                    ]
+                ];
+
+                $animalsData[] = $data;
+            }
+        }
+
+        if (empty($animalsData)) {
+            return new JsonResponse(['message' => 'Aucun animal trouvé pour les habitats'], Response::HTTP_NOT_FOUND);
+        }
+
+        return new JsonResponse($animalsData, Response::HTTP_OK);
+    }
+
 
     #[Route('/edit/{id}', name: 'edit', methods: 'PUT')]
     public function edit(int $id, Request $request): JsonResponse

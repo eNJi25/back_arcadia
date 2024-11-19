@@ -40,6 +40,25 @@ class HabitatController extends AbstractController
         return new JsonResponse($responseData, Response::HTTP_CREATED, ["location" => $location], true);
     }
 
+    #[Route('/showAll', name: 'show_all', methods: 'GET')]
+    public function showAll(): JsonResponse
+    {
+        $habitats = $this->repository->findAll();
+
+        $data = [];
+        foreach ($habitats as $habitat) {
+            $data[] = [
+                'id' => $habitat->getId(),
+                'nom' => $habitat->getNom(),
+                'description' => $habitat->getDescription(),
+                'image' => $habitat->getImage(),
+            ];
+        }
+
+        return new JsonResponse($data, Response::HTTP_OK);
+    }
+
+
     #[Route('/show/{id}', name: 'show', methods: 'GET')]
     public function show(int $id): JsonResponse
     {
