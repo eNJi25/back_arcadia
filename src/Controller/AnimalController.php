@@ -111,18 +111,26 @@ class AnimalController extends AbstractController
             $race = $animal->getRace();
             $raceName = $race ? $race->getRace() : null;
 
+            $imageSlug = null;
+            $images = $animal->getImages();
+            if ($images->count() > 0) {
+                $imageSlug = $images->first()->getSlug();
+            }
+
             $data[] = [
                 'id' => $animal->getId(),
                 'prenom' => $animal->getPrenom(),
                 'etat' => $animal->getEtat(),
                 'habitat' => $animal->getHabitat()->getNom(),
                 'race' => $raceName,
-                'images' => array_map(fn($image) => $image->getUrl(), $animal->getImages()->toArray()),
+                'imageSlug' => $imageSlug,
             ];
         }
 
         return new JsonResponse($data, Response::HTTP_OK);
     }
+
+
 
     #[Route('/showAnimals/{habitatId}', name: 'show_allAnimals_byHabitat', methods: 'GET')]
     public function showAllAnimalsByHabitat(int $habitatId): JsonResponse
