@@ -10,8 +10,6 @@ use App\Repository\AnimalRepository;
 use App\Repository\HabitatRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -36,47 +34,83 @@ class AnimalController extends AbstractController
     }
 
     #[Route('/new', name: 'new', methods: ['POST'])]
-    public function new(Request $request): JsonResponse
+    public function new(Request $request, EntityManagerInterface $manager, HabitatRepository $habitatRepository): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
+        // Récupération des données envoyées par le frontend
         $raceName = $data['race'];
         $prenom = $data['prenom'];
         $etat = $data['etat'];
-        $habitatName = $data['habitat'];
-        $imageSlug = $data['imageSlug'];  // Récupération du slug de l'image
+        $habitatId = $data['habitat_id']; // L'ID de l'habitat, au lieu du nom
+        $photoAnimal = $request->files->get('photo'); // Le fichier de l'image envoyé
 
-        $race = $this->manager->getRepository(Race::class)->findOneBy(['race' => $raceName]);
-        $habitat = $this->manager->getRepository(Habitat::class)->findOneBy(['nom' => $habitatName]);
+        // Vérification des données obligatoires
+        if (!$raceName || !$prenom || !$etat || !$habitatId || !$photoAnimal) {
+            return new JsonResponse(['message' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Récupérer la race et l'habitat
+        $race = $manager->getRepository(Race::class)->findOneBy(['race' => $raceName]);
+        $habitat = $habitatRepository->find($habitatId); // On récupère l'habitat par son ID
 
         if (!$race) {
             $race = new Race();
             $race->setRace($raceName);
-            $this->manager->persist($race);
-            $this->manager->flush();
+            $manager->persist($race);
+            $manager->flush();
         }
 
+        if (!$habitat) {
+            return new JsonResponse(['message' => 'Habitat non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Création de l'animal
         $animal = new Animal();
         $animal->setPrenom($prenom);
         $animal->setEtat($etat);
         $animal->setHabitat($habitat);
         $animal->setRace($race);
 
-        // On suppose que le slug de l'image est déjà disponible dans le front
-        if ($imageSlug) {
+        // Gestion de l'image
+        if ($photoAnimal->isValid()) {
+            // Vérification du type de fichier et de la taille
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (!in_array($photoAnimal->getClientMimeType(), $allowedTypes)) {
+                return new JsonResponse(['message' => 'Type de fichier non autorisé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($photoAnimal->getSize() > 5 * 1024 * 1024) { // 5MB max
+                return new JsonResponse(['message' => 'L\'image est trop grande'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Générer un nom unique pour l'image
+            $imageName = uniqid() . '.' . $photoAnimal->guessExtension();
+            $imagePath = $this->getParameter('kernel.project_dir') . '/public/assets/images/habitats/' . $habitatId;
+
+            // Créer le dossier de l'habitat si nécessaire
+            if (!is_dir($imagePath)) {
+                mkdir($imagePath, 0777, true);
+            }
+
+            // Déplacer l'image dans le bon dossier
+            $photoAnimal->move($imagePath, $imageName);
+
+            // Enregistrer l'image dans la base de données
             $image = new Image();
-            $image->setSlug($imageSlug);  // On utilise le slug envoyé depuis le front
+            $image->setSlug($imageName);  // Le slug est le nom du fichier
             $image->setAnimal($animal);
 
-            // Persiste l'image
-            $this->manager->persist($image);
+            $manager->persist($image);
         }
 
-        $this->manager->persist($animal);
-        $this->manager->flush();
+        // Sauvegarde de l'animal
+        $manager->persist($animal);
+        $manager->flush();
 
         return new JsonResponse(["message" => "Animal créé avec succès"], 201);
     }
+
 
 
     #[Route('/show/{id}', name: 'show', methods: 'GET')]
