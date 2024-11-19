@@ -1,12 +1,14 @@
 nelmio_cors:
   defaults:
-    allow_origin: ["http://127.0.0.1:3000", "http://localhost:3000"] # Ajouter ici ton domaine
-    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_origin: ["http://localhost:3000"] # Origine autorisée
+    allow_credentials: true
     allow_headers: ["Content-Type", "Authorization"]
+    expose_headers: []
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     max_age: 3600
   paths:
-    "^/api/":
-      allow_origin: ["http://127.0.0.1:3000", "http://localhost:3000"] # Ajouter ici ton domaine
-      allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    "^/api/": # Appliquer les règles CORS uniquement aux routes commençant par /api/
+      allow_origin: ["http://localhost:3000"]
       allow_headers: ["Content-Type", "Authorization"]
-      max_age: 3600
+      allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allow_credentials: true

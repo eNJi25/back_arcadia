@@ -6,6 +6,8 @@ use App\Repository\AnimalRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Annotation\MaxDepth;
 
 #[ORM\Entity(repositoryClass: AnimalRepository::class)]
 class Animal
@@ -23,11 +25,11 @@ class Animal
 
     #[ORM\ManyToOne(inversedBy: 'animals')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?habitat $habitat = null;
+    private ?Habitat $habitat = null;
 
     #[ORM\ManyToOne(inversedBy: 'animals')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?race $race = null;
+    private ?Race $race = null;
 
     /**
      * @var Collection<int, Image>
@@ -38,7 +40,9 @@ class Animal
     /**
      * @var Collection<int, RapportVeterinaire>
      */
-    #[ORM\OneToMany(targetEntity: RapportVeterinaire::class, mappedBy: 'animal')]
+    #[ORM\OneToMany(mappedBy: 'animal', targetEntity: RapportVeterinaire::class)]
+    #[MaxDepth(1)]  // Limite la profondeur de la sérialisation
+    #[Groups(['animal:read', 'rapportVeterinaire:read'])]  // Groupe pour sérialisation
     private Collection $rapportVeterinaires;
 
     public function __construct()

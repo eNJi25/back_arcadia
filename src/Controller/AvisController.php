@@ -29,7 +29,6 @@ class AvisController extends AbstractController
     {
         $avis = $this->serializer->deserialize($request->getContent(), Avis::class, 'json');
 
-        // Ajouter la date actuelle automatiquement
         $avis->setCreatedAt(new \DateTimeImmutable());
 
         $this->manager->persist($avis);
@@ -45,7 +44,6 @@ class AvisController extends AbstractController
         $avis = $this->repository->findBy(['isVisible' => false]);
 
         if (!empty($avis)) {
-            // Utilisation du serializer Symfony
             $responseData = $this->serializer->serialize($avis, 'json', ['json_encode_options' => JSON_PRETTY_PRINT]);
             return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
@@ -62,7 +60,6 @@ class AvisController extends AbstractController
             3
         );
 
-        // Sérialiser les données pour les transformer en JSON
         $responseData = $this->serializer->serialize($validAvis, 'json', ['json_encode_options' => JSON_PRETTY_PRINT]);
 
         return new JsonResponse($responseData, Response::HTTP_OK, [], true);
@@ -72,20 +69,18 @@ class AvisController extends AbstractController
     #[Route('/accept/{id}', name: 'accept', methods: 'PUT')]
     public function accept(int $id, Request $request): JsonResponse
     {
-        // Récupérer l'avis par son ID
+
         $avis = $this->repository->find($id);
 
         if (!$avis) {
             return new JsonResponse(['error' => 'Avis non trouvé.'], 404);
         }
 
-        // Mettre à jour la propriété isVisible à true
         $avis->setVisible(true);
 
-        // Persister l'entité et effectuer la mise à jour dans la base de données
         $this->manager->flush();
 
-        // Retourner une réponse JSON avec un message de succès
+
         return new JsonResponse(['message' => 'Avis accepté et visible maintenant.'], 200);
     }
 

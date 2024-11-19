@@ -5,6 +5,8 @@ namespace App\Entity;
 use App\Repository\RapportVeterinaireRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\MaxDepth;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: RapportVeterinaireRepository::class)]
 class RapportVeterinaire
@@ -17,14 +19,29 @@ class RapportVeterinaire
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
-    #[ORM\Column(type: Types::TEXT)]
-    private ?string $detail = null;
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $detail_habitat = null;
+
+    /**
+     * @MaxDepth(1)  // Limite la profondeur de la sérialisation
+     * @Groups(["rapportVeterinaire:read"])  // Groupe pour la sérialisation
+     */
+    #[ORM\ManyToOne(inversedBy: 'rapportVeterinaires')]
+    private ?Animal $animal = null;
 
     #[ORM\ManyToOne(inversedBy: 'rapportVeterinaires')]
-    private ?animal $animal = null;
+    #[MaxDepth(1)]  // Limite la profondeur de la sérialisation pour éviter les boucles
+    #[Groups(['rapportVeterinaire:read', 'user:read'])]  // Groupe pour sérialisation
+    private ?User $user = null;
 
-    #[ORM\ManyToOne(inversedBy: 'rapportVeterinaires')]
-    private ?user $user = null;
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $nourriture_propose = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?float $quantite_propose = null;
+
+    #[ORM\Column(length: 255)]
+    private ?string $etat_animal = null;
 
     public function getId(): ?int
     {
@@ -43,14 +60,14 @@ class RapportVeterinaire
         return $this;
     }
 
-    public function getDetail(): ?string
+    public function getDetailHabitat(): ?string
     {
-        return $this->detail;
+        return $this->detail_habitat;
     }
 
-    public function setDetail(string $detail): static
+    public function setDetailHabitat(string $detail_habitat): static
     {
-        $this->detail = $detail;
+        $this->detail_habitat = $detail_habitat;
 
         return $this;
     }
@@ -75,6 +92,42 @@ class RapportVeterinaire
     public function setUser(?user $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    public function getNourriturePropose(): ?string
+    {
+        return $this->nourriture_propose;
+    }
+
+    public function setNourriturePropose(?string $nourriture_propose): static
+    {
+        $this->nourriture_propose = $nourriture_propose;
+
+        return $this;
+    }
+
+    public function getQuantitePropose(): ?float
+    {
+        return $this->quantite_propose;
+    }
+
+    public function setQuantitePropose(?float $quantite_propose): static
+    {
+        $this->quantite_propose = $quantite_propose;
+
+        return $this;
+    }
+
+    public function getEtatAnimal(): ?string
+    {
+        return $this->etat_animal;
+    }
+
+    public function setEtatAnimal(string $etat_animal): static
+    {
+        $this->etat_animal = $etat_animal;
 
         return $this;
     }
