@@ -7,6 +7,7 @@ use App\Entity\Habitat;
 use App\Entity\Image;
 use App\Entity\Race;
 use App\Repository\AnimalRepository;
+use App\Repository\HabitatRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
@@ -26,7 +27,8 @@ class AnimalController extends AbstractController
 
     public function __construct(
         private EntityManagerInterface $manager,
-        private AnimalRepository $repository,
+        private AnimalRepository $animalRepository,
+        private HabitatRepository $habitatRepository,
         private UrlGeneratorInterface $urlGenerator,
         private SerializerInterface $serializer,
     ) {
@@ -85,14 +87,13 @@ class AnimalController extends AbstractController
         $this->manager->persist($animal);
         $this->manager->flush();
 
-        // Retourner une réponse de succès
         return new JsonResponse(["message" => "Animal créé avec succès"], 201);
     }
 
     #[Route('/show/{id}', name: 'show', methods: 'GET')]
     public function show(int $id): JsonResponse
     {
-        $animal = $this->repository->findOneBy(['id' => $id]);
+        $animal = $this->animalRepository->findOneBy(['id' => $id]);
         if ($animal) {
             $responseData = $this->serializer->serialize($animal, 'json');
             return new JsonResponse($responseData, Response::HTTP_OK, [], true);
@@ -101,10 +102,73 @@ class AnimalController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
+    #[Route('/showlastAnimals/{habitatId}', name: 'show_lastAnimal_byHabitat', methods: 'GET')]
+    public function showLastAnimalsByHabitat(int $habitatId): JsonResponse
+    {
+        $habitat = $this->habitatRepository->find($habitatId);
+
+        if (!$habitat) {
+            return new JsonResponse(['message' => 'Habitat non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $animals = $this->animalRepository->findBy(
+            ['habitat' => $habitat],
+            ['id' => 'DESC'],
+            4
+        );
+
+        $data = [];
+        foreach ($animals as $animal) {
+            $race = $animal->getRace();
+            $raceName = $race ? $race->getRace() : null;
+
+            $data[] = [
+                'id' => $animal->getId(),
+                'prenom' => $animal->getPrenom(),
+                'etat' => $animal->getEtat(),
+                'habitat' => $animal->getHabitat()->getNom(),
+                'race' => $raceName,
+                'images' => array_map(fn($image) => $image->getUrl(), $animal->getImages()->toArray()),
+            ];
+        }
+
+        return new JsonResponse($data, Response::HTTP_OK);
+    }
+
+    #[Route('/showAnimals/{habitatId}', name: 'show_allAnimals_byHabitat', methods: 'GET')]
+    public function showAllAnimalsByHabitat(int $habitatId): JsonResponse
+    {
+        $habitat = $this->habitatRepository->find($habitatId);
+
+        if (!$habitat) {
+            return new JsonResponse(['message' => 'Habitat non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $animals = $this->animalRepository->findBy(['habitat' => $habitat]);
+
+        $data = [];
+        foreach ($animals as $animal) {
+            $race = $animal->getRace();
+            $raceName = $race ? $race->getRace() : null;
+
+            $data[] = [
+                'id' => $animal->getId(),
+                'prenom' => $animal->getPrenom(),
+                'etat' => $animal->getEtat(),
+                'habitat' => $animal->getHabitat()->getNom(),
+                'race' => $raceName,
+                'images' => array_map(fn($image) => $image->getUrl(), $animal->getImages()->toArray()),
+            ];
+        }
+
+        return new JsonResponse($data, Response::HTTP_OK);
+    }
+
+
     #[Route('/edit/{id}', name: 'edit', methods: 'PUT')]
     public function edit(int $id, Request $request): JsonResponse
     {
-        $animal = $this->repository->findOneBy(['id' => $id]);
+        $animal = $this->animalRepository->findOneBy(['id' => $id]);
         if ($animal) {
             $animal = $this->serializer->deserialize(
                 $request->getContent(),
@@ -124,7 +188,7 @@ class AnimalController extends AbstractController
     #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]
     public function delete(int $id): JsonResponse
     {
-        $animal = $this->repository->findOneBy(['id' => $id]);
+        $animal = $this->animalRepository->findOneBy(['id' => $id]);
         if ($animal) {
             $this->manager->remove($animal);
             $this->manager->flush();

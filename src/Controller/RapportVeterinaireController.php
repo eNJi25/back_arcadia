@@ -33,7 +33,7 @@ class RapportVeterinaireController extends AbstractController
     #[Route('/new', name: 'new', methods: 'POST')]
     public function new(Request $request): JsonResponse
     {
-        
+
         $rapportVeterinaire = $this->serializer->deserialize(
             $request->getContent(),
             RapportVeterinaire::class,
@@ -83,6 +83,30 @@ class RapportVeterinaireController extends AbstractController
     public function show(): JsonResponse
     {
         $rapports = $this->repository->findAll();
+        $data = [];
+        foreach ($rapports as $rapport) {
+            $data[] = [
+                'id' => $rapport->getId(),
+                'createdAt' => $rapport->getCreatedAt()->format('Y-m-d H:i:s'),
+                'detailHabitat' => $rapport->getDetailHabitat(),
+                'nourriturePropose' => $rapport->getNourriturePropose(),
+                'quantitePropose' => $rapport->getQuantitePropose(),
+                'etatAnimal' => $rapport->getEtatAnimal(),
+            ];
+        }
+
+        return new JsonResponse($data, Response::HTTP_OK);
+    }
+
+    #[Route('/showlastRapports', name: 'show_lastRapports', methods: 'GET')]
+    public function showLastRapports(): JsonResponse
+    {
+        $rapports = $this->repository->findBy(
+            [],
+            ['createdAt' => 'DESC'],
+            4
+        );
+
         $data = [];
         foreach ($rapports as $rapport) {
             $data[] = [

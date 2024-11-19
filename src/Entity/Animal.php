@@ -23,8 +23,9 @@ class Animal
     #[ORM\Column(length: 255)]
     private ?string $etat = null;
 
-    #[ORM\ManyToOne(inversedBy: 'animals')]
+    #[ORM\ManyToOne(targetEntity: Habitat::class, inversedBy: 'animals')]
     #[ORM\JoinColumn(nullable: false)]
+    #[MaxDepth(1)]
     private ?Habitat $habitat = null;
 
     #[ORM\ManyToOne(inversedBy: 'animals')]
