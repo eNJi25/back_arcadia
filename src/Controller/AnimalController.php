@@ -8,8 +8,11 @@ use App\Entity\Image;
 use App\Entity\Race;
 use App\Repository\AnimalRepository;
 use App\Repository\HabitatRepository;
+use App\Repository\RaceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,10 +21,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 
+
 #[Route('/api/animal', name: 'app_api_animal_')]
 class AnimalController extends AbstractController
 {
-    private $uploadDirectory;
 
     public function __construct(
         private EntityManagerInterface $manager,
@@ -29,89 +32,77 @@ class AnimalController extends AbstractController
         private HabitatRepository $habitatRepository,
         private UrlGeneratorInterface $urlGenerator,
         private SerializerInterface $serializer,
-    ) {
-        $this->uploadDirectory = __DIR__ . '/../../public/assets/images/animaux';
-    }
+    ) {}
 
-    #[Route('/new', name: 'new', methods: ['POST'])]
-    public function new(Request $request, EntityManagerInterface $manager, HabitatRepository $habitatRepository): JsonResponse
+    #[Route('/new', name: 'new_animal', methods: ['POST'])]
+    public function new(Request $request, EntityManagerInterface $em, HabitatRepository $habitatRepo, RaceRepository $raceRepo, ParameterBagInterface $params): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        // Récupérer les données de la requête
+        $prenom = $request->request->get('prenomAnimal');
+        $etat = $request->request->get('etatAnimal');
+        $habitatName = $request->request->get('habitatAnimal');
+        $raceName = $request->request->get('raceAnimal');
+        $photo = $request->files->get('photo');
 
-        // Récupération des données envoyées par le frontend
-        $raceName = $data['race'];
-        $prenom = $data['prenom'];
-        $etat = $data['etat'];
-        $habitatId = $data['habitat_id']; // L'ID de l'habitat, au lieu du nom
-        $photoAnimal = $request->files->get('photo'); // Le fichier de l'image envoyé
-
-        // Vérification des données obligatoires
-        if (!$raceName || !$prenom || !$etat || !$habitatId || !$photoAnimal) {
-            return new JsonResponse(['message' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
+        // Vérification des données
+        if (!$prenom || !$etat || !$habitatName || !$raceName || !$photo) {
+            return new JsonResponse(['message' => 'Tous les champs sont nécessaires.'], 400);
         }
 
-        // Récupérer la race et l'habitat
-        $race = $manager->getRepository(Race::class)->findOneBy(['race' => $raceName]);
-        $habitat = $habitatRepository->find($habitatId); // On récupère l'habitat par son ID
+        // Recherche de l'habitat
+        $habitat = $habitatRepo->findOneBy(['nom' => $habitatName]);
+        if (!$habitat) {
+            return new JsonResponse(['message' => 'Habitat introuvable.'], 404);
+        }
 
+        // Vérification et création de la race si elle n'existe pas
+        $race = $raceRepo->findOneBy(['race' => $raceName]);
         if (!$race) {
             $race = new Race();
             $race->setRace($raceName);
-            $manager->persist($race);
-            $manager->flush();
+            $em->persist($race);
+            $em->flush();
         }
 
-        if (!$habitat) {
-            return new JsonResponse(['message' => 'Habitat non trouvé'], Response::HTTP_NOT_FOUND);
+        // Vérification de la validité de l'image
+        if (!$photo instanceof UploadedFile || !$photo->isValid()) {
+            return new JsonResponse(['message' => 'Erreur avec le fichier photo.'], 400);
         }
 
-        // Création de l'animal
+        // Utilisation du paramètre animal_images_directory pour obtenir le répertoire
+        $directory = $params->get('animal_images_directory');
+
+        // Vérifiez si le répertoire existe sinon créez-le
+        if (!is_dir($directory)) {
+            mkdir($directory, 0775, true); // Crée le dossier avec les bonnes permissions
+        }
+
+        // Générer un nom de fichier unique
+        $fileName = uniqid() . '.' . $photo->guessExtension();
+
+        // Déplacer l'image dans le répertoire spécifié
+        $photo->move($directory, $fileName);
+
+        // Créer l'animal
         $animal = new Animal();
-        $animal->setPrenom($prenom);
-        $animal->setEtat($etat);
-        $animal->setHabitat($habitat);
-        $animal->setRace($race);
+        $animal->setPrenom($prenom)
+            ->setEtat($etat)
+            ->setHabitat($habitat)
+            ->setRace($race);
 
-        // Gestion de l'image
-        if ($photoAnimal->isValid()) {
-            // Vérification du type de fichier et de la taille
-            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (!in_array($photoAnimal->getClientMimeType(), $allowedTypes)) {
-                return new JsonResponse(['message' => 'Type de fichier non autorisé'], Response::HTTP_BAD_REQUEST);
-            }
+        $em->persist($animal);
 
-            if ($photoAnimal->getSize() > 5 * 1024 * 1024) { // 5MB max
-                return new JsonResponse(['message' => 'L\'image est trop grande'], Response::HTTP_BAD_REQUEST);
-            }
+        // Créer l'image associée
+        $image = new Image();
+        $image->setSlug($fileName);
+        $image->setAnimal($animal);
 
-            // Générer un nom unique pour l'image
-            $imageName = uniqid() . '.' . $photoAnimal->guessExtension();
-            $imagePath = $this->getParameter('kernel.project_dir') . '/public/assets/images/habitats/' . $habitatId;
+        $em->persist($image);
+        $em->flush();
 
-            // Créer le dossier de l'habitat si nécessaire
-            if (!is_dir($imagePath)) {
-                mkdir($imagePath, 0777, true);
-            }
-
-            // Déplacer l'image dans le bon dossier
-            $photoAnimal->move($imagePath, $imageName);
-
-            // Enregistrer l'image dans la base de données
-            $image = new Image();
-            $image->setSlug($imageName);  // Le slug est le nom du fichier
-            $image->setAnimal($animal);
-
-            $manager->persist($image);
-        }
-
-        // Sauvegarde de l'animal
-        $manager->persist($animal);
-        $manager->flush();
-
-        return new JsonResponse(["message" => "Animal créé avec succès"], 201);
+        // Retourner une réponse JSON de succès
+        return new JsonResponse(['message' => 'Animal créé avec succès!', 'animalId' => $animal->getId(), 'imagePath' => '/assets/images/' . $fileName], 201);
     }
-
-
 
     #[Route('/show/{id}', name: 'show', methods: 'GET')]
     public function show(int $id): JsonResponse
