@@ -44,6 +44,7 @@ class AnimalController extends AbstractController
         $prenom = $data['prenom'];
         $etat = $data['etat'];
         $habitatName = $data['habitat'];
+        $imageSlug = $data['imageSlug'];  // Récupération du slug de l'image
 
         $race = $this->manager->getRepository(Race::class)->findOneBy(['race' => $raceName]);
         $habitat = $this->manager->getRepository(Habitat::class)->findOneBy(['nom' => $habitatName]);
@@ -55,33 +56,20 @@ class AnimalController extends AbstractController
             $this->manager->flush();
         }
 
-
-
         $animal = new Animal();
         $animal->setPrenom($prenom);
         $animal->setEtat($etat);
         $animal->setHabitat($habitat);
         $animal->setRace($race);
 
-        if ($request->files->get('image')) {
-            $imageFile = $request->files->get('image');
+        // On suppose que le slug de l'image est déjà disponible dans le front
+        if ($imageSlug) {
+            $image = new Image();
+            $image->setSlug($imageSlug);  // On utilise le slug envoyé depuis le front
+            $image->setAnimal($animal);
 
-            if ($imageFile instanceof UploadedFile) {
-                $filename = uniqid() . '.' . $imageFile->guessExtension();
-                try {
-
-                    $imageFile->move($this->uploadDirectory, $filename);
-
-                    $image = new Image();
-                    $image->setSlug('/uploads/images/' . $filename);
-                    $image->setAnimal($animal);
-
-                    // Persiste l'image
-                    $this->manager->persist($image);
-                } catch (FileException $e) {
-                    return new Response('Erreur lors du téléchargement de l\'image.', 500);
-                }
-            }
+            // Persiste l'image
+            $this->manager->persist($image);
         }
 
         $this->manager->persist($animal);
@@ -89,6 +77,7 @@ class AnimalController extends AbstractController
 
         return new JsonResponse(["message" => "Animal créé avec succès"], 201);
     }
+
 
     #[Route('/show/{id}', name: 'show', methods: 'GET')]
     public function show(int $id): JsonResponse
@@ -167,7 +156,6 @@ class AnimalController extends AbstractController
     #[Route('/showAnimalsHome', name: 'show_animals_page', methods: 'GET')]
     public function showAllAnimals(): JsonResponse
     {
-        // Récupérer tous les habitats
         $habitats = $this->habitatRepository->findAll();
 
         if (empty($habitats)) {
@@ -177,10 +165,12 @@ class AnimalController extends AbstractController
         $animalsData = [];
 
         foreach ($habitats as $habitat) {
-            // Recherche un animal de cet habitat
             $animal = $this->animalRepository->findOneBy(['habitat' => $habitat]);
 
             if ($animal) {
+                $images = $animal->getImages();
+                $imageUrls = array_map(fn($image) => $image->getSlug(), $images->toArray());
+
                 $data = [
                     'habitat' => $habitat->getNom(),
                     'animal' => [
@@ -188,7 +178,7 @@ class AnimalController extends AbstractController
                         'prenom' => $animal->getPrenom(),
                         'etat' => $animal->getEtat(),
                         'race' => $animal->getRace() ? $animal->getRace()->getRace() : null,
-                        'images' => array_map(fn($image) => $image->getUrl(), $animal->getImages()->toArray()),
+                        'images' => $imageUrls,
                     ]
                 ];
 
