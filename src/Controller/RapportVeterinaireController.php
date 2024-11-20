@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\Animal;
 use App\Entity\RapportVeterinaire;
-use App\Entity\User;
 use App\Repository\AnimalRepository;
 use App\Repository\RapportVeterinaireRepository;
 use App\Repository\UserRepository;
@@ -33,7 +32,6 @@ class RapportVeterinaireController extends AbstractController
     #[Route('/new', name: 'new', methods: 'POST')]
     public function new(Request $request): JsonResponse
     {
-
         $rapportVeterinaire = $this->serializer->deserialize(
             $request->getContent(),
             RapportVeterinaire::class,
@@ -42,9 +40,12 @@ class RapportVeterinaireController extends AbstractController
         );
 
         $data = json_decode($request->getContent(), true);
+
         $animalId = $data['animal'] ?? null;
-        $userId = $data['user'] ?? null;
         $etatAnimal = $data['etat_animal'] ?? null;
+        $nourriturePropose = $data['nourriture_propose'] ?? null;
+        $quantitePropose = $data['quantite_propose'] ?? null;
+        $detailHabitat = $data['detail_habitat'] ?? null;
 
         if (!$animalId) {
             return new JsonResponse(['error' => 'Animal ID is required'], Response::HTTP_BAD_REQUEST);
@@ -56,18 +57,22 @@ class RapportVeterinaireController extends AbstractController
         }
         $rapportVeterinaire->setAnimal($animal);
 
-        if ($userId) {
-            $user = $this->manager->getRepository(User::class)->find($userId);
-            if (!$user) {
-                return new JsonResponse(['error' => 'User not found'], Response::HTTP_BAD_REQUEST);
-            }
-            $rapportVeterinaire->setUser($user);
-        }
-
         if (!$etatAnimal) {
             return new JsonResponse(['error' => 'Etat animal is required'], Response::HTTP_BAD_REQUEST);
         }
         $rapportVeterinaire->setEtatAnimal($etatAnimal);
+
+        if ($nourriturePropose) {
+            $rapportVeterinaire->setNourriturePropose($nourriturePropose);
+        }
+
+        if ($quantitePropose) {
+            $rapportVeterinaire->setQuantitePropose($quantitePropose);
+        }
+
+        if ($detailHabitat) {
+            $rapportVeterinaire->setDetailHabitat($detailHabitat);
+        }
 
         $rapportVeterinaire->setCreatedAt(new \DateTimeImmutable());
 
@@ -78,6 +83,8 @@ class RapportVeterinaireController extends AbstractController
 
         return new JsonResponse($responseData, Response::HTTP_CREATED, [], true);
     }
+
+
 
     #[Route('/show', name: 'show', methods: 'GET')]
     public function show(): JsonResponse

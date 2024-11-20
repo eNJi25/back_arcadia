@@ -35,31 +35,25 @@ class ServiceController extends AbstractController
         /** @var UploadedFile $photo */
         $photo = $request->files->get('image');
 
-        // Validation des données
         if (!$nom || !$description || !$imageDirection || !$photo instanceof UploadedFile || !$photo->isValid()) {
             return new JsonResponse(['message' => 'Données invalides ou fichier manquant.'], 400);
         }
 
-        // Spécifier le répertoire de destination pour l'image
         $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/services';
 
-        // Générer un nom unique pour l'image
         $newFilename = uniqid() . '.' . $photo->guessExtension();
 
         try {
-            // Déplacer l'image dans le répertoire des services
             $photo->move($uploadsDir, $newFilename);
             $service->setImage('assets/images/services/' . $newFilename);
         } catch (FileException $e) {
             return new JsonResponse(['message' => 'Erreur lors de l\'upload de l\'image.'], 500);
         }
 
-        // Définir les autres champs de l'entité
         $service->setNom($nom);
         $service->setDescription($description);
         $service->setImageDirection($imageDirection);
 
-        // Sauvegarder le service en base de données
         $this->manager->persist($service);
         $this->manager->flush();
 
@@ -103,7 +97,6 @@ class ServiceController extends AbstractController
             return new JsonResponse(['error' => 'Service non trouvé.'], Response::HTTP_NOT_FOUND);
         }
 
-        // Gérer les données pour une requête PUT
         $data = [];
         if ($request->getMethod() === 'PUT') {
             $content = $request->getContent();
@@ -114,7 +107,6 @@ class ServiceController extends AbstractController
 
         $file = $request->files->get('image');
 
-        // Mettre à jour les champs
         if (!empty($data['nom'])) {
             $service->setNom($data['nom']);
         }
@@ -127,7 +119,6 @@ class ServiceController extends AbstractController
             $service->setImageDirection($data['imageDirection']);
         }
 
-        // Gérer l'upload de fichier
         if ($file instanceof UploadedFile && $file->isValid()) {
             $uploadDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/services';
 

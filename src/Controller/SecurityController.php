@@ -66,7 +66,7 @@ class SecurityController extends AbstractController
     public function login(Request $request, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        $username = $data['username'] ?? null; // Change 'email' en 'username'
+        $username = $data['username'] ?? null;
         $password = $data['password'] ?? null;
 
         if (!$username || !$password) {
@@ -75,7 +75,7 @@ class SecurityController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $user = $this->userRepository->findOneBy(['email' => $username]); // Utilise 'email' ici aussi
+        $user = $this->userRepository->findOneBy(['email' => $username]);
 
         if (!$user) {
             return new JsonResponse([

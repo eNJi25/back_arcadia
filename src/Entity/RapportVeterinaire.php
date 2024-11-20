@@ -23,16 +23,12 @@ class RapportVeterinaire
     private ?string $detail_habitat = null;
 
     /**
-     * @MaxDepth(1)  // Limite la profondeur de la sérialisation
-     * @Groups(["rapportVeterinaire:read"])  // Groupe pour la sérialisation
+     * @MaxDepth(1)
+     * @Groups(["rapportVeterinaire:read"])
      */
     #[ORM\ManyToOne(inversedBy: 'rapportVeterinaires')]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Animal $animal = null;
-
-    #[ORM\ManyToOne(inversedBy: 'rapportVeterinaires')]
-    #[MaxDepth(1)]  // Limite la profondeur de la sérialisation pour éviter les boucles
-    #[Groups(['rapportVeterinaire:read', 'user:read'])]  // Groupe pour sérialisation
-    private ?User $user = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $nourriture_propose = null;
@@ -80,18 +76,6 @@ class RapportVeterinaire
     public function setAnimal(?animal $animal): static
     {
         $this->animal = $animal;
-
-        return $this;
-    }
-
-    public function getUser(): ?user
-    {
-        return $this->user;
-    }
-
-    public function setUser(?user $user): static
-    {
-        $this->user = $user;
 
         return $this;
     }

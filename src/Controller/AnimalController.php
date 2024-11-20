@@ -3,7 +3,6 @@
 namespace App\Controller;
 
 use App\Entity\Animal;
-use App\Entity\Habitat;
 use App\Entity\Image;
 use App\Entity\Race;
 use App\Repository\AnimalRepository;
@@ -11,7 +10,6 @@ use App\Repository\HabitatRepository;
 use App\Repository\RaceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,25 +36,20 @@ class AnimalController extends AbstractController
     #[Route('/new', name: 'new_animal', methods: ['POST'])]
     public function new(Request $request, EntityManagerInterface $em, HabitatRepository $habitatRepo, RaceRepository $raceRepo): JsonResponse
     {
-        // Récupérer les données de la requête
         $prenom = $request->request->get('prenomAnimal');
-        $etat = $request->request->get('etatAnimal');
         $habitatName = $request->request->get('habitatAnimal');
         $raceName = $request->request->get('raceAnimal');
-        $photo = $request->files->get('photo');  // Photo de l'animal
+        $photo = $request->files->get('photo');
 
-        // Vérification des données
-        if (!$prenom || !$etat || !$habitatName || !$raceName || !$photo) {
+        if (!$prenom || !$habitatName || !$raceName || !$photo) {
             return new JsonResponse(['message' => 'Tous les champs sont nécessaires.'], 400);
         }
 
-        // Recherche de l'habitat
         $habitat = $habitatRepo->findOneBy(['nom' => $habitatName]);
         if (!$habitat) {
             return new JsonResponse(['message' => 'Habitat introuvable.'], 404);
         }
 
-        // Vérification et création de la race si elle n'existe pas
         $race = $raceRepo->findOneBy(['race' => $raceName]);
         if (!$race) {
             $race = new Race();
@@ -65,46 +58,38 @@ class AnimalController extends AbstractController
             $em->flush();
         }
 
-        // Vérification de la validité de l'image
         if (!$photo instanceof UploadedFile || !$photo->isValid()) {
             return new JsonResponse(['message' => 'Erreur avec le fichier photo.'], 400);
         }
 
-        // Spécifier le répertoire de destination pour l'image
         $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/animaux';
 
-        // Générer un nom unique pour l'image
         $newFilename = '/assets/images/animaux/' . uniqid() . '.' . $photo->guessExtension();
 
         try {
-            // Déplacer l'image dans le répertoire des animaux
             $photo->move($uploadsDir, $newFilename);
         } catch (FileException $e) {
             return new JsonResponse(['message' => 'Erreur lors de l\'upload de l\'image'], 500);
         }
 
-        // Créer l'animal
         $animal = new Animal();
         $animal->setPrenom($prenom)
-            ->setEtat($etat)
             ->setHabitat($habitat)
             ->setRace($race);
 
         $em->persist($animal);
 
-        // Créer l'image associée
         $image = new Image();
-        $image->setSlug($newFilename);  // Assigner le chemin de l'image à l'entité Image
+        $image->setSlug($newFilename);
         $image->setAnimal($animal);
 
         $em->persist($image);
         $em->flush();
 
-        // Retourner une réponse JSON de succès avec le chemin de l'image
         return new JsonResponse([
             'message' => 'Animal créé avec succès!',
             'animalId' => $animal->getId(),
-            'imagePath' => $newFilename  // Retourner le chemin relatif de l'image
+            'imagePath' => $newFilename 
         ], 201);
     }
 
@@ -113,13 +98,16 @@ class AnimalController extends AbstractController
     public function show(int $id): JsonResponse
     {
         $animal = $this->animalRepository->findOneBy(['id' => $id]);
+
         if ($animal) {
-            $responseData = $this->serializer->serialize($animal, 'json');
+            $responseData = $this->serializer->serialize($animal, 'json', ['groups' => ['animal:read', 'habitat:read']]);
             return new JsonResponse($responseData, Response::HTTP_OK, [], true);
         }
 
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
+
+
 
     #[Route('/showlastAnimals/{habitatId}', name: 'show_lastAnimal_byHabitat', methods: 'GET')]
     public function showLastAnimalsByHabitat(int $habitatId): JsonResponse
@@ -150,7 +138,6 @@ class AnimalController extends AbstractController
             $data[] = [
                 'id' => $animal->getId(),
                 'prenom' => $animal->getPrenom(),
-                'etat' => $animal->getEtat(),
                 'habitat' => $animal->getHabitat()->getNom(),
                 'race' => $raceName,
                 'imageSlug' => $imageSlug,
@@ -181,7 +168,6 @@ class AnimalController extends AbstractController
             $data[] = [
                 'id' => $animal->getId(),
                 'prenom' => $animal->getPrenom(),
-                'etat' => $animal->getEtat(),
                 'habitat' => $animal->getHabitat()->getNom(),
                 'race' => $raceName,
                 'images' => array_map(fn($image) => $image->getUrl(), $animal->getImages()->toArray()),
@@ -214,7 +200,6 @@ class AnimalController extends AbstractController
                     'animal' => [
                         'id' => $animal->getId(),
                         'prenom' => $animal->getPrenom(),
-                        'etat' => $animal->getEtat(),
                         'race' => $animal->getRace() ? $animal->getRace()->getRace() : null,
                         'images' => $imageUrls,
                     ]
@@ -232,24 +217,47 @@ class AnimalController extends AbstractController
     }
 
 
-    #[Route('/edit/{id}', name: 'edit', methods: 'PUT')]
-    public function edit(int $id, Request $request): JsonResponse
+    #[Route('/edit/{id}', name: 'edit', methods: 'POST')]
+    public function edit(Request $request, int $id): JsonResponse
     {
-        $animal = $this->animalRepository->findOneBy(['id' => $id]);
-        if ($animal) {
-            $animal = $this->serializer->deserialize(
-                $request->getContent(),
-                Animal::class,
-                'json',
-                [AbstractNormalizer::OBJECT_TO_POPULATE => $animal]
-            );
+        $data = json_decode($request->getContent(), true);
 
-            $this->manager->flush();
-
-            return new JsonResponse(['message' => 'Modifier avec succès'], 202);
+        if (!is_array($data)) {
+            return new JsonResponse(['error' => 'Données invalides'], 400);
         }
 
-        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
+        $animal = $this->animalRepository->find($id);
+        if (!$animal) {
+            return new JsonResponse(['error' => 'Animal non trouvé'], 404);
+        }
+
+        if (isset($data['quantite'])) {
+            if (!is_numeric($data['quantite']) || $data['quantite'] < 0) {
+                return new JsonResponse(['error' => 'Quantité invalide'], 400);
+            }
+            $animal->setQuantiteRepas((float) $data['quantite']);
+        }
+
+        if (isset($data['nourriture'])) {
+            $animal->setNourriture($data['nourriture']);
+        }
+
+        if (isset($data['dateRepas'])) {
+            try {
+                $dateRepas = new \DateTimeImmutable($data['dateRepas']);
+                $animal->setDateRepas($dateRepas);
+            } catch (\Exception $e) {
+                return new JsonResponse(['error' => 'Format de date invalide'], 400);
+            }
+        }
+
+        try {
+            $this->manager->flush();
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Erreur lors de la mise à jour de l\'animal'], 500);
+        }
+
+        return new JsonResponse(['message' => 'Animal mis à jour avec succès'], 200);
     }
 
     #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]

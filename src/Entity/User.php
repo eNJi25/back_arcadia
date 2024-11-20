@@ -22,13 +22,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     /**
-     * @var list<string> The user roles
+     * @var list<string>
      */
     #[ORM\Column]
     private array $roles = [];
 
     /**
-     * @var string The hashed password
+     * @var string
      */
     #[ORM\Column]
     private ?string $password = null;
@@ -145,7 +145,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if (!$this->rapportVeterinaires->contains($rapportVeterinaire)) {
             $this->rapportVeterinaires->add($rapportVeterinaire);
-            $rapportVeterinaire->setUser($this);
         }
 
         return $this;
@@ -155,9 +154,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if ($this->rapportVeterinaires->removeElement($rapportVeterinaire)) {
             // set the owning side to null (unless already changed)
-            if ($rapportVeterinaire->getUser() === $this) {
-                $rapportVeterinaire->setUser(null);
-            }
         }
 
         return $this;

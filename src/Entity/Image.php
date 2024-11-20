@@ -17,8 +17,8 @@ class Image
     private ?string $slug = null;
 
     #[ORM\ManyToOne(inversedBy: 'images')]
-    #[ORM\JoinColumn(nullable: false)]
-    private ?animal $animal = null;
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    private ?Animal $animal = null;
 
     public function getId(): ?int
     {
