@@ -6,6 +6,8 @@ use App\Entity\Service;
 use App\Repository\ServiceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,13 +26,48 @@ class ServiceController extends AbstractController
     #[Route('/new', name: 'new', methods: 'POST')]
     public function new(Request $request): JsonResponse
     {
-        $service = $this->serializer->deserialize($request->getContent(), Service::class, 'json');
+        $service = new Service();
+
+        $nom = $request->request->get('nom');
+        $description = $request->request->get('description');
+        $imageDirection = $request->request->get('imageDirection');
+
+        /** @var UploadedFile $photo */
+        $photo = $request->files->get('image');
+
+        // Validation des données
+        if (!$nom || !$description || !$imageDirection || !$photo instanceof UploadedFile || !$photo->isValid()) {
+            return new JsonResponse(['message' => 'Données invalides ou fichier manquant.'], 400);
+        }
+
+        // Spécifier le répertoire de destination pour l'image
+        $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/services';
+
+        // Générer un nom unique pour l'image
+        $newFilename = uniqid() . '.' . $photo->guessExtension();
+
+        try {
+            // Déplacer l'image dans le répertoire des services
+            $photo->move($uploadsDir, $newFilename);
+            $service->setImage('assets/images/services/' . $newFilename);
+        } catch (FileException $e) {
+            return new JsonResponse(['message' => 'Erreur lors de l\'upload de l\'image.'], 500);
+        }
+
+        // Définir les autres champs de l'entité
+        $service->setNom($nom);
+        $service->setDescription($description);
+        $service->setImageDirection($imageDirection);
+
+        // Sauvegarder le service en base de données
         $this->manager->persist($service);
         $this->manager->flush();
 
         $responseData = $this->serializer->serialize($service, 'json');
-        return new JsonResponse($responseData,Response::HTTP_CREATED, [], true);
+        return new JsonResponse($responseData, Response::HTTP_CREATED, [], true);
     }
+
+
 
     #[Route('/showAll', name: 'show_all', methods: 'GET')]
     public function showAll(): JsonResponse
@@ -46,32 +83,77 @@ class ServiceController extends AbstractController
         $service = $this->repository->find($id);
 
         if (!$service) {
-            return new JsonResponse(['error' => 'Service non trouvé.'],Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => 'Service non trouvé.'], Response::HTTP_NOT_FOUND);
         }
 
         $responseData = $this->serializer->serialize($service, 'json');
-        return new JsonResponse($responseData,Response::HTTP_OK, [], true);
+        return new JsonResponse($responseData, Response::HTTP_OK, [], true);
     }
 
-    #[Route('/update/{id}', name: 'update', methods: 'PUT')]
-    public function update(int $id, Request $request): JsonResponse
-    {
-        $service = $this->repository->find($id);
+    #[Route('/update/{id}', name: 'update_service', methods: ['PUT', 'POST'])]
+    public function update(
+        int $id,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ServiceRepository $serviceRepository
+    ): JsonResponse {
+        $service = $serviceRepository->find($id);
 
         if (!$service) {
-            return new JsonResponse(['error' => 'Service non trouvé.'],Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => 'Service non trouvé.'], Response::HTTP_NOT_FOUND);
         }
 
-        $data = json_decode($request->getContent(), true);
-        $service->setNom($data['nom'] ?? $service->getNom())
-            ->setDescription($data['description'] ?? $service->getDescription())
-            ->setImage($data['image'] ?? $service->getImage())
-            ->setImageDirection($data['imageDirection'] ?? $service->getImageDirection());
+        // Gérer les données pour une requête PUT
+        $data = [];
+        if ($request->getMethod() === 'PUT') {
+            $content = $request->getContent();
+            parse_str($content, $data);
+        } else {
+            $data = $request->request->all();
+        }
 
-        $this->manager->flush();
-        $responseData = $this->serializer->serialize($service, 'json');
-        return new JsonResponse($responseData,Response::HTTP_OK, [], true);
+        $file = $request->files->get('image');
+
+        // Mettre à jour les champs
+        if (!empty($data['nom'])) {
+            $service->setNom($data['nom']);
+        }
+
+        if (!empty($data['description'])) {
+            $service->setDescription($data['description']);
+        }
+
+        if (!empty($data['imageDirection'])) {
+            $service->setImageDirection($data['imageDirection']);
+        }
+
+        // Gérer l'upload de fichier
+        if ($file instanceof UploadedFile && $file->isValid()) {
+            $uploadDir = $this->getParameter('kernel.project_dir') . '/public/assets/images/services';
+
+            $oldImagePath = $this->getParameter('kernel.project_dir') . '/public/' . $service->getImage();
+            if ($service->getImage() && file_exists($oldImagePath)) {
+                unlink($oldImagePath);
+            }
+
+            $newFilename = uniqid() . '.' . $file->guessExtension();
+            try {
+                $file->move($uploadDir, $newFilename);
+                $service->setImage('assets/images/services/' . $newFilename);
+            } catch (FileException $e) {
+                return new JsonResponse(['error' => 'Erreur lors de l\'upload de l\'image.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+        }
+
+        try {
+            $entityManager->flush();
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Erreur lors de la mise à jour du service.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return new JsonResponse(['message' => 'Service mis à jour avec succès.'], Response::HTTP_OK);
     }
+
 
     #[Route('/delete/{id}', name: 'delete', methods: 'DELETE')]
     public function delete(int $id): JsonResponse
@@ -79,11 +161,11 @@ class ServiceController extends AbstractController
         $service = $this->repository->find($id);
 
         if (!$service) {
-            return new JsonResponse(['error' => 'Service non trouvé.'],Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => 'Service non trouvé.'], Response::HTTP_NOT_FOUND);
         }
 
         $this->manager->remove($service);
         $this->manager->flush();
-        return new JsonResponse(['message' => 'Service supprimé avec succès.'],Response::HTTP_OK);
+        return new JsonResponse(['message' => 'Service supprimé avec succès.'], Response::HTTP_OK);
     }
 }
