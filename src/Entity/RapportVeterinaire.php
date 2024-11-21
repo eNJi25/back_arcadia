@@ -17,6 +17,7 @@ class RapportVeterinaire
     private ?int $id = null;
 
     #[ORM\Column]
+    #[Groups(['rapportVeterinaire:read'])]
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
@@ -37,6 +38,7 @@ class RapportVeterinaire
     private ?float $quantite_propose = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['rapportVeterinaire:read'])]
     private ?string $etat_animal = null;
 
     public function getId(): ?int

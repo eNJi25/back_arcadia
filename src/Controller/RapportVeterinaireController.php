@@ -128,4 +128,29 @@ class RapportVeterinaireController extends AbstractController
 
         return new JsonResponse($data, Response::HTTP_OK);
     }
+
+    #[Route('/last/{animalId}', name: 'last_by_animal', methods: 'GET')]
+    public function getLastReportByAnimal(int $animalId): JsonResponse
+    {
+        // Récupérer l'animal par son ID
+        $animal = $this->animalRepository->find($animalId);
+        if (!$animal) {
+            return new JsonResponse(['error' => 'Animal not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Récupérer le dernier rapport vétérinaire pour cet animal
+        $lastRapport = $this->repository->findOneBy(
+            ['animal' => $animal],
+            ['createdAt' => 'DESC'] // Trier par date de création, le plus récent en premier
+        );
+
+        if (!$lastRapport) {
+            return new JsonResponse(['error' => 'No reports found for this animal'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Sérialiser le rapport vétérinaire pour le retour en JSON
+        $responseData = $this->serializer->serialize($lastRapport, 'json', ['groups' => ['rapportVeterinaire:read']]);
+
+        return new JsonResponse($responseData, Response::HTTP_OK, [], true);
+    }
 }

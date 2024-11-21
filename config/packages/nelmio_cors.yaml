@@ -1,14 +1,19 @@
 nelmio_cors:
   defaults:
-    allow_origin: ["http://localhost:3000"]
-    allow_credentials: true
-    allow_headers: ["Content-Type", "Authorization"]
+    allow_origin: [] # Désactiver les règles globales par défaut
+    allow_credentials: false
+    allow_headers: []
     expose_headers: []
-    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    max_age: 3600
+    allow_methods: []
+    max_age: 0
+
   paths:
     "^/api/":
-      allow_origin: ["http://localhost:3000"]
+      allow_origin:
+        - "http://localhost:3000" # Origine locale
+        - "arcadia2024.alwaysdata.net" # Origine de production
       allow_credentials: true
-      allow_headers: ["Content-Type", "Authorization"]
+      allow_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+      expose_headers: ["Link"] # Si vous avez des en-têtes à exposer
       allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      max_age: 3600
